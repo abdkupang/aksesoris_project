@@ -165,7 +165,15 @@ Database `db_penjualan_aksesoris` terdiri dari tabel-tabel berikut:
 
 ## 📄 Lisensi
 
-Proyek ini dibuat untuk keperluan pembelajaran dan pengembangan.
+Proyek ini dilisensikan di bawah [MIT License](LICENSE).
+
+## 🤝 Kontribusi
+
+Kontribusi sangat diterima! Silakan baca [CONTRIBUTING.md](CONTRIBUTING.md) untuk panduan berkontribusi.
+
+## 🔒 Keamanan
+
+Untuk melaporkan kerentanan keamanan, silakan baca [SECURITY.md](SECURITY.md).
 
 ---
 
