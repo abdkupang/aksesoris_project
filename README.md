@@ -110,7 +110,7 @@ Database `db_penjualan_aksesoris` terdiri dari tabel-tabel berikut:
 
 1. **Clone repository**
    ```bash
-   git clone https://github.com/abdkupr/aksesoris_project.git
+   git clone https://github.com/abdkupang/aksesoris_project.git
    ```
 
 2. **Pindahkan ke direktori web server**
