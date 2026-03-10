@@ -1,0 +1,25 @@
+# Vendor dependencies
+/vendor/
+
+# Uploaded files
+/uploads/produk/*
+/uploads/bukti/*
+!uploads/produk/.gitkeep
+!uploads/bukti/.gitkeep
+
+# IDE & Editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Composer
+composer.lock
+
+# Environment
+.env

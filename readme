@@ -1,0 +1,378 @@
+poin penting yang akan saya pakai dari instruksi kamu:
+
+* ada 2 aktor: **pembeli** dan **penjual**
+* fitur utama: login, toko (katalog produk), keranjang, checkout, pesanan, upload bukti transfer
+* **pembeli**: keranjang & pesanan **hanya muncul setelah login**, kalau belum login dan mencoba pesan → muncul peringatan agar login
+* **penjual**: punya **dashboard dengan sidebar**, bisa kelola produk, pesanan, bukti transfer, data pelanggan, dan boleh buka halaman toko tapi **tidak boleh memesan**
+
+di bawah ini alur flow saya pecah jadi 2: alur pembeli dan alur penjual.
+
+---
+
+## 1. Alur Flow Pembeli
+
+### 1.1. Akses awal ke halaman toko (tanpa login)
+
+1. Pembeli membuka URL utama toko (misal `/index.php` atau `/toko.php`).
+2. Sistem menampilkan:
+
+   * Daftar produk (nama, harga, foto utama).
+   * Filter / pencarian produk.
+   * Tombol **login** / **daftar** di header.
+3. Di kondisi **belum login**:
+
+   * **Tidak** ada ikon keranjang.
+   * **Tidak** ada tombol “lihat pesanan saya”.
+   * Tombol **“tambah ke keranjang”** bisa:
+
+     * opsi A (lebih aman): disembunyikan
+     * opsi B: tetap muncul, tapi kalau diklik → diarahkan ke halaman login dengan pesan peringatan.
+   * Kalau pembeli mencoba akses langsung URL keranjang, checkout, atau pesanan (misal ketik manual `/keranjang.php`, `/pesanan_saya.php`) → sistem cek sesi:
+
+     * Jika belum login → redirect ke halaman login dengan pesan:
+       **“silakan login terlebih dahulu untuk mengakses keranjang/pesanan.”**
+
+> implementasi teknis: pengecekan `if (!isset($_SESSION['pengguna'])) { ... }` di setiap halaman yang butuh login.
+
+---
+
+### 1.2. Registrasi pembeli
+
+1. Pembeli klik tombol **“daftar”**.
+2. Halaman registrasi menampilkan form:
+
+   * nama lengkap
+   * email
+   * kata sandi
+   * konfirmasi kata sandi
+   * no hp
+   * alamat
+3. Saat submit:
+
+   * sistem validasi (email unik, password cocok).
+   * simpan ke tabel `pengguna` dengan `role = 'pembeli'`.
+   * jika sukses → redirect ke halaman login + pesan **“registrasi berhasil, silakan login.”**
+
+---
+
+### 1.3. Login pembeli
+
+1. Pembeli buka halaman login.
+2. Masukkan email + kata sandi.
+3. Sistem cek ke tabel `pengguna`:
+
+   * jika cocok & `role = 'pembeli'` → buat sesi login pembeli.
+   * jika role bukan pembeli (misal penjual) → redirect ke halaman dashboard penjual, bukan ke toko.
+4. Setelah login sukses:
+
+   * redirect ke halaman toko utama.
+   * sekarang **ikon keranjang dan menu pesanan** akan tampil.
+
+---
+
+### 1.4. Flow melihat produk + menambahkan ke keranjang (sudah login)
+
+1. Pembeli login dan melihat daftar produk.
+2. Di setiap kartu produk, tampil:
+
+   * foto utama (dari `produk_gambar`)
+   * nama, harga, stok
+   * tombol **“detail”** dan **“tambah ke keranjang”**
+3. Saat klik **“detail”**:
+
+   * buka `detail_produk.php?id_produk=...`
+   * tampilkan:
+
+     * beberapa foto produk (galeri dari `produk_gambar`)
+     * deskripsi, kategori, stok
+     * tombol **“tambah ke keranjang”** (jika stok > 0)
+4. Saat klik **“tambah ke keranjang”**:
+
+   * sistem cek apakah pembeli sudah punya `keranjang` di tabel:
+
+     * jika belum, buat 1 baris keranjang untuk `id_pengguna` tersebut.
+   * cek apakah produk sudah ada di `keranjang_item` untuk keranjang tersebut:
+
+     * jika sudah ada → update `jumlah = jumlah + input`
+     * kalau belum → insert baris baru.
+   * `harga_saat_ini` diambil dari `produk.harga` → disimpan ke `keranjang_item`.
+   * tampilkan notifikasi: **“produk berhasil ditambahkan ke keranjang.”**
+
+---
+
+### 1.5. Flow melihat & mengedit keranjang
+
+1. Pembeli klik ikon **keranjang** (misal menuju `/keranjang.php`).
+2. Sistem menampilkan:
+
+   * daftar item dalam `keranjang_item` milik pembeli (join dengan `produk`).
+   * kolom jumlah (bisa diubah), subtotal per produk, dan total harga.
+   * tombol:
+
+     * **update keranjang** (ubah jumlah / hapus item)
+     * **lanjut belanja** (kembali ke toko)
+     * **checkout**
+3. Saat pembeli:
+
+   * mengubah jumlah lalu klik **update**:
+
+     * update data di `keranjang_item`.
+   * klik **hapus** di salah satu item:
+
+     * delete row di `keranjang_item`.
+4. Jika pembeli belum login dan coba akses `/keranjang.php`:
+
+   * redirect ke login + pesan peringatan (seperti di 1.1).
+
+---
+
+### 1.6. Flow checkout & membuat pesanan
+
+1. Di halaman keranjang, pembeli klik tombol **“checkout”**.
+2. Sistem cek:
+
+   * keranjang tidak kosong.
+   * pembeli masih login.
+3. Halaman checkout menampilkan:
+
+   * ringkasan item (nama produk, jumlah, subtotal).
+   * form data pengiriman:
+
+     * nama penerima
+     * no hp penerima
+     * alamat pengiriman
+     * catatan (opsional)
+   * informasi cara pembayaran (misal nomor rekening).
+4. Saat klik **“buat pesanan”**:
+
+   * hitung total_harga dari `keranjang_item`.
+   * generate `kode_pesanan` (misal `INV20251203-0001`).
+   * insert ke tabel `pesanan` dengan:
+
+     * `status_pesanan = 'menunggu_pembayaran'`
+     * `metode_pembayaran = 'transfer_bank'`
+     * data penerima & alamat.
+   * untuk setiap item di keranjang, insert ke `pesanan_item`:
+
+     * `id_pesanan`, `id_produk`, `nama_produk` (copy dari tabel produk), `harga`, `jumlah`, `subtotal`.
+   * opsional: kurangi stok di `produk.stok`.
+   * kosongkan keranjang (`delete from keranjang_item` milik pembeli).
+   * redirect ke halaman detail pesanan + instruksi pembayaran.
+
+---
+
+### 1.7. Flow upload bukti transfer
+
+1. Setelah membuat pesanan, pembeli diarahkan ke halaman:
+
+   * `/pesanan_detail.php?id_pesanan=...`
+2. Halaman menampilkan:
+
+   * status pesanan (misal “menunggu pembayaran”).
+   * total harga & nomor rekening tujuan.
+   * form upload bukti transfer (input file).
+3. Saat pembeli upload dan klik **“kirim bukti transfer”**:
+
+   * file gambar disimpan ke folder (misal `/uploads/bukti/`) dengan nama unik.
+   * path file disimpan ke tabel `bukti_transfer`:
+
+     * `id_pesanan`, `path_bukti`, `status_verifikasi = 'menunggu'`.
+   * status pesanan bisa tetap **‘menunggu_pembayaran’** atau diubah ke **‘menunggu_konfirmasi’** (tergantung logika kamu).
+   * tampilkan pesan **“bukti transfer berhasil diunggah, menunggu konfirmasi penjual.”**
+
+---
+
+### 1.8. Flow melihat riwayat pesanan & status
+
+1. Pembeli klik menu **“pesanan saya”** (hanya muncul jika login).
+2. Sistem tampilkan daftar pesanan milik pembeli (`pesanan` by `id_pengguna`):
+
+   * kode pesanan, tanggal, total, status.
+3. Pembeli bisa klik **“detail”** untuk:
+
+   * melihat item pesanan.
+   * melihat status bukti transfer (menunggu / diterima / ditolak).
+   * melihat status pesanan: menunggu_pembayaran / menunggu_konfirmasi / diproses / dikirim / selesai / dibatalkan.
+
+---
+
+## 2. Alur Flow Penjual
+
+### 2.1. Login penjual & akses dashboard
+
+1. Penjual buka halaman login yang sama (boleh sama, beda tampilan atau baru; logika di backend saja).
+2. Masukkan email + kata sandi.
+3. Sistem cek ke tabel `pengguna`:
+
+   * jika `role = 'penjual'` → buat sesi penjual dan redirect ke **dashboard penjual** (misal `/penjual/index.php`).
+4. Di dashboard penjual:
+
+   * tampilan utama + **sidebar navigasi** dengan menu:
+
+     * dashboard (ringkasan)
+     * produk
+     * pesanan
+     * bukti transfer
+     * pelanggan
+     * pengaturan akun
+     * lihat toko (buka halaman toko sebagai pembeli tapi tanpa hak pesanan)
+
+---
+
+### 2.2. Flow pengelolaan produk
+
+**A. Melihat daftar produk**
+
+1. Penjual klik menu **“produk”** di sidebar.
+2. Halaman menampilkan:
+
+   * tabel daftar produk (nama, harga, stok, status, kategori).
+   * tombol **tambah produk**.
+   * tombol **edit** dan **hapus** di tiap baris.
+
+**B. Menambah produk**
+
+1. Klik **“tambah produk”**.
+2. Form:
+
+   * nama produk
+   * pilih kategori
+   * deskripsi
+   * harga
+   * stok
+   * status produk (draft / aktif / nonaktif)
+3. Submit:
+
+   * simpan ke tabel `produk`.
+   * redirect ke halaman upload gambar produk atau tampilkan form upload di halaman yang sama.
+
+**C. Upload gambar produk**
+
+1. Setelah produk tersimpan, penjual:
+
+   * pilih file gambar (bisa lebih dari satu).
+   * tandai salah satu sebagai **gambar utama** (`is_utama = 1`).
+2. Simpan:
+
+   * file ke folder `/uploads/produk/`
+   * path ke tabel `produk_gambar`.
+
+**D. Edit / nonaktifkan produk**
+
+1. Klik **“edit”** di daftar produk:
+
+   * ubah data (harga, stok, deskripsi, status).
+2. Jika penjual ingin produk tidak muncul di toko:
+
+   * ubah `status_produk` ke **‘nonaktif’** atau **‘draft’**.
+
+---
+
+### 2.3. Flow pengelolaan pesanan
+
+**A. Melihat daftar pesanan**
+
+1. Penjual klik menu **“pesanan”** di sidebar.
+2. Halaman menampilkan daftar pesanan:
+
+   * filter berdasarkan `status_pesanan` (menunggu_pembayaran, menunggu_konfirmasi, diproses, dikirim, selesai, dibatalkan).
+   * informasi ringkas: kode, nama pembeli, total, status.
+
+**B. Melihat detail pesanan**
+
+1. Klik **“detail”** pada salah satu pesanan.
+2. Halaman detail pesanan menampilkan:
+
+   * data pembeli dan alamat pengiriman.
+   * daftar item (nama produk, jumlah, harga, subtotal).
+   * total harga.
+   * status pesanan.
+   * informasi bukti transfer (jika ada).
+
+**C. Memproses pesanan**
+
+1. Jika status pesanan **‘menunggu_konfirmasi’** dan bukti transfer sudah diupload:
+
+   * penjual buka tab **bukti transfer** atau bagian bukti di detail pesanan.
+2. Jika pembayaran valid:
+
+   * ubah `status_verifikasi` bukti transfer → **‘diterima’**.
+   * ubah `status_pesanan` → **‘diproses’**.
+3. Setelah barang dikemas dan dikirim:
+
+   * ubah `status_pesanan` → **‘dikirim’** (opsional: simpan nomor resi).
+4. Setelah pembeli konfirmasi terima (atau otomatis setelah beberapa hari):
+
+   * ubah `status_pesanan` → **‘selesai’**.
+5. Jika pesanan dibatalkan:
+
+   * ubah `status_pesanan` → **‘dibatalkan’** (bisa karena stok habis atau pembayaran tidak valid).
+
+---
+
+### 2.4. Flow pengelolaan bukti transfer
+
+1. Penjual klik menu **“bukti transfer”** di sidebar.
+2. Halaman menampilkan:
+
+   * daftar bukti dari tabel `bukti_transfer`:
+
+     * kode pesanan, status verifikasi, tanggal upload.
+3. Penjual klik salah satu:
+
+   * melihat gambar bukti dengan jelas.
+   * bisa pilih tindakan:
+
+     * **setujui** → `status_verifikasi = 'diterima'`, `status_pesanan → 'diproses'`.
+     * **tolak** → `status_verifikasi = 'ditolak'`, `status_pesanan` bisa kembali ke **‘menunggu_pembayaran’** atau langsung **‘dibatalkan’** (sesuai kebijakan).
+   * menyimpan catatan (misal alasan penolakan).
+
+---
+
+### 2.5. Flow melihat data pelanggan
+
+1. Penjual klik menu **“pelanggan”** di sidebar.
+2. Sistem menampilkan daftar pengguna yang pernah melakukan pesanan:
+
+   * ambil `id_pengguna` unik dari tabel `pesanan`, join dengan `pengguna`.
+3. Di halaman ini bisa tampil:
+
+   * nama, email, total jumlah pesanan, total nilai transaksi.
+
+---
+
+### 2.6. Penjual membuka halaman toko sebagai pembeli (tanpa hak pesan)
+
+1. Di sidebar penjual, ada menu **“lihat toko”**.
+2. Saat diklik:
+
+   * sistem membuka halaman toko (misal `/toko.php?mode=penjual`).
+3. Di mode penjual ini:
+
+   * daftar produk tampil normal.
+   * **tombol keranjang**, **checkout**, dan tombol **tambah ke keranjang**:
+
+     * bisa disembunyikan sama sekali, **atau**
+     * ditampilkan tapi dalam kondisi disabled (nonaktif) dengan tooltip “penjual tidak dapat melakukan pemesanan.”
+4. kalau penjual mencoba akses `/keranjang.php` atau fungsi pemesanan lewat URL:
+
+   * backend cek role:
+
+     * jika `role = 'penjual'` → blokir dan redirect ke dashboard dengan pesan **“penjual tidak dapat membuat pesanan.”**
+
+---
+
+### 2.7. Logout
+
+baik penjual maupun pembeli:
+
+1. Klik tombol **logout**.
+2. Sistem menghapus sesi login (`session_destroy`).
+3. Redirect ke halaman depan toko atau halaman login.
+
+---
+
+kalau kamu mau, langkah berikutnya saya bisa:
+
+* susun **daftar halaman lengkap** (file php apa saja + fungsinya),
+* plus contoh **struktur folder proyek** (`index.php`, `penjual/`, `pembeli/`, `assets/`, dll).
